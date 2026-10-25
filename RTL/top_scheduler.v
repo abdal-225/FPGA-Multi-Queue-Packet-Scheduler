@@ -6,7 +6,8 @@ module top_scheduler (
     input wire [4:0] BTN,
     output wire [7:0] LED,
     output reg [6:0] SEG,
-    output wire [7:0] AN
+    output wire [7:0] AN,
+    output wire UART_TX  // ADDED: UART transmit pin for the Nexys 4 DDR
 );
 
     // 1. CONTROL SIGNALS
@@ -231,5 +232,45 @@ module top_scheduler (
             default: SEG = 7'b1111111;
         endcase
     end
+
+    // 12. ADDED: UART TELEMETRY INSTANTIATION
+    wire telemetry_overflow; // Internal wire to catch buffer_overflow
+
+    uart_telemetry u_uart_telemetry (
+        .clk(clk),
+        .reset(reset),
+        
+        .mode(mode),
+        .selected_queue(selected_queue_d),
+        .select_valid(select_valid_d),
+        
+        .empty(queue_empty),
+        .full(queue_full),
+        .occupancy(queue_occupancy),
+        
+        // Event 1: Packet Generated
+        .generated_valid(generated_valid),
+        .generated_packet(generated_packet),
+        .generated_queue(generated_queue),
+        
+        // Event 2: Packet Enqueued
+        .enqueue_valid(write_request),
+        .enqueue_packet(generated_packet),
+        .enqueue_queue(generated_queue),
+        
+        // Event 3: Packet Transmitted
+        .transmitted_valid(packet_transmitted_event),
+        .transmitted_packet(packet_out),
+        .transmitted_queue(selected_queue_d),
+        
+        .cycle_count(cycle_count),
+        .generated_count(generated_count),
+        .transmitted_count(transmitted_count),
+        .latency_count(average_latency),
+        .throughput_count(throughput_count),
+        
+        .uart_tx(UART_TX),
+        .buffer_overflow(telemetry_overflow)
+    );
 
 endmodule

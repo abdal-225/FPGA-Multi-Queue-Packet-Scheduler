@@ -1,68 +1,67 @@
-module FiFo(
-    input        clk,
-    input        rst,
+module fifo (
+    input clk,
+    input reset,
 
-    input        wr_en,
-    input        rd_en,
+    input write_en,
+    input read_en,
 
-    input  [7:0] data_in,
-    output reg [7:0] data_out,
+    input [15:0] data_in,
+    output reg [15:0] data_out,
 
-    output        full,
-    output        empty
+    output full,
+    output empty,
+    output [4:0] count
 );
 
-    // FIFO memory
-    reg [7:0] mem [0:7];
+    // FIFO memory: 16 packets, each 16 bits wide
+    reg [15:0] mem [0:15];
 
     // Read and write pointers
-    reg [2:0] wr_ptr;
-    reg [2:0] rd_ptr;
+    reg [3:0] write_ptr;
+    reg [3:0] read_ptr;
 
-    // Number of stored elements
-    reg [3:0] count;
+    // Occupancy counter
+    reg [4:0] fifo_count;
 
-    // Full and empty conditions
-    assign empty = (count == 0);
-    assign full  = (count == 8);
+    // FIFO status flags
+    assign full  = (fifo_count == 5'd16);
+    assign empty = (fifo_count == 5'd0);
+    assign count = fifo_count;
 
+    // FIFO operations
     always @(posedge clk) begin
-
-        if (rst) begin
-            wr_ptr   <= 0;
-            rd_ptr   <= 0;
-            count    <= 0;
-            data_out <= 0;
+        if (reset) begin
+            write_ptr <= 4'd0;
+            read_ptr  <= 4'd0;
+            fifo_count <= 5'd0;
+            data_out  <= 16'd0;
         end
-
         else begin
 
-            // WRITE operation
-            if (wr_en && !full) begin
-                mem[wr_ptr] <= data_in;
-                wr_ptr <= wr_ptr + 1;
+            // Write operation
+            if (write_en && !full) begin
+                mem[write_ptr] <= data_in;
+                write_ptr <= write_ptr + 1'b1;
             end
 
-            // READ operation
-            if (rd_en && !empty) begin
-                data_out <= mem[rd_ptr];
-                rd_ptr <= rd_ptr + 1;
+            // Read operation
+            if (read_en && !empty) begin
+                data_out <= mem[read_ptr];
+                read_ptr <= read_ptr + 1'b1;
             end
 
-            // COUNT update
-            case ({wr_en && !full, rd_en && !empty})
-
-                2'b10: count <= count + 1; // Write only
-
-                2'b01: count <= count - 1; // Read only
-
-                2'b11: count <= count;     // Read and write
-
-                default: count <= count;   // Nothing
-
+            // Occupancy update
+            case ({
+                write_en && !full,
+                read_en && !empty
+            })
+                2'b10: fifo_count <= fifo_count + 1'b1;
+                2'b01: fifo_count <= fifo_count - 1'b1;
+                2'b11: fifo_count <= fifo_count;
+                default: fifo_count <= fifo_count;
             endcase
 
         end
     end
 
-endmodule    
+endmodule
